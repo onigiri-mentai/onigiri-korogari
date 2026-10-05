@@ -47,7 +47,8 @@
       width: 800px;
       height: 426px;
       margin: 0;
-      transform: translate(-50%, -50%) rotate(var(--game-rotation, 0deg)) scale(var(--game-scale, 0));
+      transform: translate3d(-50%, -50%, 0) rotate(var(--game-rotation, 0deg)) scale(var(--game-scale, 0));
+      will-change: transform;
     }
     #game-container {
       position: relative;
@@ -65,6 +66,12 @@
       width: 800px;
       height: 400px;
       display: block;
+      transform: translateZ(0);
+    }
+    #performanceHud {
+      position: absolute; left: 10px; bottom: 10px; z-index: 40;
+      padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,0.8);
+      color: #fff; font: 12px monospace; pointer-events: none;
     }
     .music-credit {
       position: absolute;
@@ -919,6 +926,6 @@
   <footer class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</footer>
   </div>
   </div>
-  <script src="script.js?v=mobile-credit-smooth-5"></script>
+  <script src="script.js?v=frame-audio-smooth-6"></script>
 </body>
 </html>
