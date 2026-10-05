@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ころがりおにぎり</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,14 +14,32 @@
       height: 100%;
       background: #cfe8ff;
       font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Kaku Gothic Pro', 'ヒラギノ角ゴシック', sans-serif;
-      overflow-x: hidden;
-      overflow-y: auto;
+      overflow: hidden;
+    }
+    body {
+      height: 100dvh;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    }
+    #game-stage {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
     }
     #game-container {
-      position: relative;
+      position: absolute;
+      left: 50%;
+      top: 50%;
       width: 800px;
       height: 400px;
-      margin: 20px auto;
+      margin: 0;
+      transform: translate(-50%, -50%) scale(var(--game-scale, 1));
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       background: #cfe8ff;
       overflow: hidden;
@@ -32,8 +50,8 @@
       display: block;
     }
     .music-credit {
-      margin: 0 16px 20px;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      flex-shrink: 0;
+      margin: 4px 0 0;
       color: #3d3d3c;
       font-size: 12px;
       line-height: 1.6;
@@ -48,6 +66,27 @@
     .music-credit a:focus-visible {
       outline: 2px solid #315b7d;
       outline-offset: 3px;
+    }
+
+    #orientationPrompt {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      box-sizing: border-box;
+      padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+      background: #cfe8ff;
+      color: #3d3024;
+      text-align: center;
+      line-height: 1.8;
+    }
+    #orientationPrompt .rotate-icon { font-size: 56px; }
+    #orientationPrompt p { margin: 8px 0; }
+    @media (orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px) {
+      #orientationPrompt { display: flex; }
     }
 
     /* 具材表示 */
@@ -782,12 +821,13 @@
   </style>
 </head>
 <body>
+  <div id="game-stage">
   <div id="game-container">
     <canvas id="gameCanvas" width="800" height="400"></canvas>
     <div id="ingredientHud"></div>
     <div id="timer">あと20秒</div>
     <button id="jumpButton">はねる</button>
-    <div id="controls">はねる： ボタン または スペースキー／↑キー</div>
+    <div id="controls">はねる：画面タップ／ボタン／Space・↑キー（2回で二段ジャンプ）</div>
 
     <audio id="jumpSound1" src="assets/jump1.mp3"></audio>
     <audio id="jumpSound2" src="assets/jump2.mp3"></audio>
@@ -852,7 +892,13 @@
       </div>
     </div>
   </div>
+  </div>
   <footer class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</footer>
+  <div id="orientationPrompt" role="status" aria-live="polite">
+    <span class="rotate-icon" aria-hidden="true">📱↔️</span>
+    <p><strong>スマホを横向きにして遊んでね🍙</strong><br>画面をタップではねるよ！<br>空中でもう一度タップで二段ジャンプ</p>
+    <p class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</p>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
