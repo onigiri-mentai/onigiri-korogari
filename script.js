@@ -11,6 +11,9 @@
   const ctx = canvas.getContext('2d');
   const gameContainer = document.getElementById('game-container');
   const gameStage = document.getElementById('game-stage');
+  const gameFrame = document.getElementById('game-frame');
+  const FRAME_WIDTH = 800;
+  const FRAME_HEIGHT = 426;
   const portraitQuery = window.matchMedia('(orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px)');
   const mobileQuery = window.matchMedia('(any-pointer: coarse), (max-width: 900px)');
   function syncVisibleViewport() {
@@ -31,11 +34,12 @@
   function fitGameToScreen() {
     const rotated = portraitQuery.matches;
     const room = mobileQuery.matches ? 0.92 : 1;
-    const displayedWidth = rotated ? canvas.height : canvas.width;
-    const displayedHeight = rotated ? canvas.width : canvas.height;
+    const displayedWidth = rotated ? FRAME_HEIGHT : FRAME_WIDTH;
+    const displayedHeight = rotated ? FRAME_WIDTH : FRAME_HEIGHT;
     const scale = Math.min(1, gameStage.clientWidth * room / displayedWidth, gameStage.clientHeight * room / displayedHeight);
-    gameContainer.style.setProperty('--game-rotation', rotated ? '90deg' : '0deg');
-    gameContainer.style.setProperty('--game-scale', String(scale));
+    document.body.classList.toggle('mobile', mobileQuery.matches);
+    gameFrame.style.setProperty('--game-rotation', rotated ? '90deg' : '0deg');
+    gameFrame.style.setProperty('--game-scale', String(scale));
   }
   new ResizeObserver(fitGameToScreen).observe(gameStage);
   window.visualViewport?.addEventListener('resize', syncVisibleViewport);
@@ -46,6 +50,7 @@
     setTimeout(syncVisibleViewport, 250);
   });
   portraitQuery.addEventListener('change', syncVisibleViewport);
+  mobileQuery.addEventListener('change', syncVisibleViewport);
   syncVisibleViewport();
   ctx.imageSmoothingEnabled = false;
 
@@ -238,6 +243,13 @@
     imageCache.sky = await loadImage('assets/background_sky.png');
     imageCache.mountain = await loadImage('assets/background_mountain.png');
     imageCache.ground = await loadImage('assets/background_ground.png');
+    // スマホでは空と山を一枚に合成して背景描画を軽くする。
+    spriteCache.mobileBackground = document.createElement('canvas');
+    spriteCache.mobileBackground.width = CANVAS_WIDTH;
+    spriteCache.mobileBackground.height = CANVAS_HEIGHT;
+    const backgroundCtx = spriteCache.mobileBackground.getContext('2d');
+    backgroundCtx.drawImage(imageCache.sky, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    backgroundCtx.drawImage(imageCache.mountain, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     for (const ing of ingredients) {
       imageCache[ing.itemSrc] = await loadImage(ing.itemSrc);
       imageCache[ing.iconSrc] = await loadImage(ing.iconSrc);
@@ -387,6 +399,7 @@
   }
 
   function startGame() {
+    if (state === 'running') return;
     clearTimeout(revealTimer);
     revealTimer = null;
     resultTeaser.style.display = 'none';
@@ -759,11 +772,14 @@ function drawPixelHouseGoal(goalObj) {
     // 描画速度が違ってもジャンプ軌道と当たり判定は60Hzで揃える。
     physicsRemainder += Math.min(100, Math.max(0, now - lastTime));
     lastTime = now;
+    let stepped = false;
     while (physicsRemainder + 0.000001 >= PHYSICS_STEP && state === 'running') {
       const stepTime = now - physicsRemainder + PHYSICS_STEP;
       physicsRemainder = Math.max(0, physicsRemainder - PHYSICS_STEP);
       updateStep(stepTime);
+      stepped = true;
     }
+    return stepped;
   }
 
   function updateStep(now) {
@@ -934,12 +950,14 @@ if (
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
     // 空（固定）
-    if (imageCache.sky) {
+    if (mobileQuery.matches && spriteCache.mobileBackground) {
+      ctx.drawImage(spriteCache.mobileBackground, 0, 0);
+    } else if (imageCache.sky) {
       ctx.drawImage(imageCache.sky, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     // 山（ゆっくり＝0.5倍速）。小数を使わず整数に丸めるのがポイント！
-    if (PERF.drawMountains && imageCache.mountain) {
+    if (!mobileQuery.matches && PERF.drawMountains && imageCache.mountain) {
       const mx = - (Math.floor((scrollX * 0.5)) % CANVAS_WIDTH);
       ctx.drawImage(imageCache.mountain, mx, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       ctx.drawImage(imageCache.mountain, mx + CANVAS_WIDTH, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -1210,8 +1228,7 @@ function drawRoundedRectPath(x, y, width, height, radius) {
 
   function gameLoop(now) {
     if (state === 'running') {
-      update(now);
-      draw();
+      if (update(now)) draw();
       requestAnimationFrame(gameLoop);
     } else if (state === 'over') {
       updateFlyingIcons();
