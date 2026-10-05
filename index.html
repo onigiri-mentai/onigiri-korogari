@@ -6,7 +6,7 @@
   <title>ころがりおにぎり</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <style>
     html, body {
       margin: 0;
@@ -186,6 +186,10 @@
       cursor: pointer;
       transform: translateX(-50%);
     }
+
+    #loadingStatus { position: absolute; top: 84%; left: 50%; transform: translateX(-50%); color: #51331f; background: #fff7cf; padding: 4px 12px; border-radius: 8px; font-size: 13px; text-align: center; }
+    #loadingStatus:empty { display: none; }
+    #startButton:disabled { opacity: 0.6; cursor: wait; }
 
     #startButton:hover {
       filter: brightness(1.08);
@@ -859,7 +863,7 @@
     <audio id="gameBgm" src="assets/game-play-bgm.mp3" loop preload="auto"></audio>
 
     <!-- 音の確認 -->
-    <div id="soundPrompt" class="overlay" style="display:none;">
+    <div id="soundPrompt" class="overlay" style="display:flex;">
       <div class="sound-card">
         <div class="sound-card__title">このゲームは音が鳴ります🍙</div>
         <div class="sound-card__text">OKを押すとBGMが流れるよ</div>
@@ -872,7 +876,8 @@
     <!-- スタート画面 -->
     <div id="startScreen" class="overlay" style="display:flex;">
       <button id="bgmToggle" type="button" aria-pressed="false"><span aria-hidden="true">♫</span><span id="bgmToggleLabel">BGM OFF</span></button>
-      <button id="startButton" aria-label="ころがる">ころがる</button>
+      <button id="startButton" aria-label="ころがる" disabled>ころがる</button>
+      <div id="loadingStatus" role="status" aria-live="polite">ゲームを読み込み中…</div>
     </div>
 
     <div id="resultTeaser" class="overlay" style="display:none;" aria-live="polite">
@@ -926,6 +931,6 @@
   <footer class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</footer>
   </div>
   </div>
-  <script src="script.js?v=frame-audio-smooth-6"></script>
+  <script src="script.js?v=optimized-startup-7"></script>
 </body>
 </html>

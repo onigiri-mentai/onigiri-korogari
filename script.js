@@ -129,6 +129,7 @@
   let preGoalAlpha = 0; // HUDのフェード用
 
   let state = 'start';
+  let gameReady = false;
   let revealTimer = null;
   let lastTime = 0;
   const PHYSICS_STEP = 1000 / 60;
@@ -165,12 +166,12 @@
   let previousPlayerRotation = 0;
 
   const ingredients = [
-  { type: 'おかか', itemSrc: 'assets/item_おかか.png', iconSrc: 'assets/icon_おかか.png', rarity: 'normal', itemScale: 0.82, resultScale: 0.78 },
-  { type: 'わかめ', itemSrc: 'assets/item_わかめ.png', iconSrc: 'assets/icon_わかめ.png', rarity: 'normal' },
-  { type: 'しゃけ', itemSrc: 'assets/item_しゃけ.png', iconSrc: 'assets/icon_しゃけ.png', rarity: 'normal' },
-  { type: '明太子', itemSrc: 'assets/item_明太子.png', iconSrc: 'assets/icon_明太子.png', rarity: 'normal' },
-  { type: 'えび天', itemSrc: 'assets/item_えび天.png', iconSrc: 'assets/icon_えび天.png', rarity: 'normal' },
-  { type: 'ケーキ', itemSrc: 'assets/item_ケーキ.png', iconSrc: 'assets/icon_ケーキ.png', rarity: 'rare' }
+  { type: 'おかか', itemSrc: 'assets/optimized/item_おかか.png', iconSrc: 'assets/optimized/icon_おかか.png', rarity: 'normal', itemScale: 0.82, resultScale: 0.78 },
+  { type: 'わかめ', itemSrc: 'assets/optimized/item_わかめ.png', iconSrc: 'assets/optimized/icon_わかめ.png', rarity: 'normal' },
+  { type: 'しゃけ', itemSrc: 'assets/optimized/item_しゃけ.png', iconSrc: 'assets/optimized/icon_しゃけ.png', rarity: 'normal' },
+  { type: '明太子', itemSrc: 'assets/optimized/item_明太子.png', iconSrc: 'assets/optimized/icon_明太子.png', rarity: 'normal' },
+  { type: 'えび天', itemSrc: 'assets/optimized/item_えび天.png', iconSrc: 'assets/optimized/icon_えび天.png', rarity: 'normal' },
+  { type: 'ケーキ', itemSrc: 'assets/optimized/item_ケーキ.png', iconSrc: 'assets/optimized/icon_ケーキ.png', rarity: 'rare' }
 ];
   const ingredientByType = new Map(ingredients.map((ing) => [ing.type, ing]));
   const normalIngredients = ingredients.filter((ing) => ing.rarity === 'normal');
@@ -282,18 +283,21 @@
   }
 
   function loadImage(src) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`画像を読み込めませんでした: ${src}`));
       img.src = src;
     });
   }
 
   async function preloadImages() {
-    player.image = await loadImage('assets/player_onigiri.png');
-    imageCache.sky = await loadImage('assets/background_sky.png');
-    imageCache.mountain = await loadImage('assets/background_mountain.png');
-    imageCache.ground = await loadImage('assets/background_ground.png');
+    const sources = ['assets/optimized/player_onigiri.png', 'assets/background_sky.png', 'assets/background_mountain.png', 'assets/background_ground.png', ...ingredients.flatMap(ing => [ing.itemSrc, ing.iconSrc])];
+    await Promise.all(sources.map(async src => { imageCache[src] = await loadImage(src); }));
+    player.image = imageCache[sources[0]];
+    imageCache.sky = imageCache[sources[1]];
+    imageCache.mountain = imageCache[sources[2]];
+    imageCache.ground = imageCache[sources[3]];
     // スマホでは空と山を一枚に合成して背景描画を軽くする。
     spriteCache.mobileBackground = document.createElement('canvas');
     spriteCache.mobileBackground.width = CANVAS_WIDTH;
@@ -302,8 +306,6 @@
     backgroundCtx.drawImage(imageCache.sky, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     backgroundCtx.drawImage(imageCache.mountain, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     for (const ing of ingredients) {
-      imageCache[ing.itemSrc] = await loadImage(ing.itemSrc);
-      imageCache[ing.iconSrc] = await loadImage(ing.iconSrc);
       const itemSize = Math.round(60 * (ing.itemScale || 1));
       spriteCache[`item:${ing.type}`] = makeSprite(imageCache[ing.itemSrc], itemSize, itemSize);
       spriteCache[`fly:${ing.type}`] = makeSprite(imageCache[ing.iconSrc], 24, 24);
@@ -447,7 +449,7 @@
   }
 
   function startGame() {
-    if (state === 'running') return;
+    if (state === 'running' || !gameReady) return;
     unlockEffects();
     clearTimeout(revealTimer);
     revealTimer = null;
@@ -598,7 +600,7 @@ function endGame() {
   resultSpecial.innerHTML = hasCake ? 'レア具材<br>ゲット!!' : (fullCombo ? 'フルコンボ<br>達成!!' : '');
   resultSpecial.classList.toggle('show', hasCake || fullCombo);
   resultFortune.textContent = `今日の一言：${getFortune(rank.grade)}`;
-  resultOnigiri.src = 'assets/player_onigiri.png';
+  resultOnigiri.src = 'assets/optimized/player_onigiri.png';
   ingredientMsg.innerHTML = makeResultTitle();
   buildResultList();
 
@@ -1520,9 +1522,11 @@ function drawRoundedRectPath(x, y, width, height, radius) {
 
   startButton.disabled = true;
   Promise.all([preloadImages(), preloadEffects()]).then(() => {
+    gameReady = true;
     startButton.disabled = false;
-    startScreen.style.display = 'flex';
-    soundPrompt.style.display = 'flex';
+    document.getElementById('loadingStatus').textContent = '';
+  }).catch(() => {
+    document.getElementById('loadingStatus').textContent = '読み込みに失敗しました。ページを再読み込みしてね。';
   });
 
   window.addEventListener('resize', () => {
