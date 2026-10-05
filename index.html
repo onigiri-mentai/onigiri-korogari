@@ -17,7 +17,7 @@
       overflow: hidden;
     }
     body {
-      height: 100dvh;
+      height: var(--viewport-height, 100dvh);
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -85,9 +85,25 @@
     }
     #orientationPrompt .rotate-icon { font-size: 56px; }
     #orientationPrompt p { margin: 8px 0; }
+    #playPortraitButton {
+      margin: 16px 0;
+      padding: 12px 24px;
+      border: 0;
+      border-radius: 12px;
+      background: #ffcc33;
+      color: #3d3024;
+      font: inherit;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #playPortraitButton:focus-visible {
+      outline: 3px solid #315b7d;
+      outline-offset: 3px;
+    }
     @media (orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px) {
       #orientationPrompt { display: flex; }
     }
+    body.allow-portrait #orientationPrompt { display: none; }
 
     /* 具材表示 */
     #ingredientHud {
@@ -896,7 +912,8 @@
   <footer class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</footer>
   <div id="orientationPrompt" role="status" aria-live="polite">
     <span class="rotate-icon" aria-hidden="true">📱↔️</span>
-    <p><strong>スマホを横向きにして遊んでね🍙</strong><br>画面をタップではねるよ！<br>空中でもう一度タップで二段ジャンプ</p>
+    <p><strong>横向きで遊ぶのがおすすめ🍙</strong><br>縦向きロック中でも、このまま遊べるよ！<br>画面タップでジャンプ、もう一度で二段ジャンプ</p>
+    <button id="playPortraitButton" type="button">このまま縦画面で遊ぶ</button>
     <p class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</p>
   </div>
   <script src="script.js"></script>
