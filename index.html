@@ -99,11 +99,13 @@
     button, a { touch-action: manipulation; }
     .sound-card__instructions { margin: 0 0 14px; font-size: 17px; font-weight: 800; }
     #saveImageButton {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       width: 148px; padding: 8px 10px; border: 0; border-radius: 10px;
       background: #ffcc33; color: #3d3024; font-size: 14px; font-weight: 800; cursor: pointer;
       box-shadow: 0 3px 0 #b96a2c;
     }
     #saveImageButton:disabled { opacity: 0.6; cursor: wait; }
+    .share-icon { width: 17px; height: 17px; flex-shrink: 0; }
     #saveStatus { position: absolute; right: 20px; bottom: 8px; width: 190px; font-size: 9px; text-align: center; }
     #savePreview { z-index: 50; background: rgba(56,42,25,0.94); text-align: center; gap: 8px; }
     #savePreviewImage { max-width: 480px; max-height: 240px; object-fit: contain; -webkit-touch-callout: default; user-select: auto; -webkit-user-select: auto; touch-action: manipulation; }
@@ -917,7 +919,7 @@
 
         <div id="saveStatus" role="status" aria-live="polite"></div>
         <div class="result-actions">
-          <button id="saveImageButton" type="button" disabled>画像を準備中…</button>
+          <button id="saveImageButton" type="button" disabled><span id="saveImageLabel">画像を準備中…</span><svg class="share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 9H5v12h14V9h-3M12 15V2m-4 4 4-4 4 4"/></svg></button>
           <button id="restartButton">もういちど</button>
         </div>
       </div>
@@ -931,6 +933,6 @@
   <footer class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</footer>
   </div>
   </div>
-  <script src="script.js?v=optimized-startup-7"></script>
+  <script src="script.js?v=share-icon-8"></script>
 </body>
 </html>
