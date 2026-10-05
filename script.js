@@ -13,18 +13,11 @@
   const gameStage = document.getElementById('game-stage');
   const portraitQuery = window.matchMedia('(orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px)');
   const mobileQuery = window.matchMedia('(any-pointer: coarse), (max-width: 900px)');
-  let allowPortrait = false;
   let portraitPauseStarted = null;
 
   function shouldPauseForPortrait() {
-    return portraitQuery.matches && !allowPortrait;
+    return portraitQuery.matches && !document.body.classList.contains('allow-portrait');
   }
-
-  document.getElementById('playPortraitButton').addEventListener('click', () => {
-    allowPortrait = true;
-    document.body.classList.add('allow-portrait');
-    fitGameToScreen();
-  });
 
   function syncVisibleViewport() {
     if (window.visualViewport) {
