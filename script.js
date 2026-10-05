@@ -20,24 +20,38 @@
   }
 
   function syncVisibleViewport() {
-    if (window.visualViewport && window.visualViewport.scale === 1) {
-      const viewportHeight = `${Math.round(window.visualViewport.height)}px`;
-      if (document.body.style.getPropertyValue('--viewport-height') !== viewportHeight) {
-        document.body.style.setProperty('--viewport-height', viewportHeight);
+    const viewport = window.visualViewport;
+    // ピンチ拡大率を除いた表示領域を使い、縦横切替後の古い高さを残さない。
+    const viewportScale = viewport ? viewport.scale : 1;
+    const width = viewport ? viewport.width * viewportScale : window.innerWidth;
+    const height = viewport ? viewport.height * viewportScale : window.innerHeight;
+    for (const [property, value] of [['--viewport-width', width], ['--viewport-height', height]]) {
+      const pixels = `${Math.round(value)}px`;
+      if (document.body.style.getPropertyValue(property) !== pixels) {
+        document.body.style.setProperty(property, pixels);
       }
     }
     fitGameToScreen();
   }
 
   function fitGameToScreen() {
-    // スマホは上下左右に余白を残す。縦画面は幅を活かして文字を読みやすくする。
+    const rotated = portraitQuery.matches && document.body.classList.contains('allow-portrait');
     const room = mobileQuery.matches ? 0.92 : 1;
-    const scale = Math.min(1, gameStage.clientWidth * room / canvas.width, gameStage.clientHeight * room / canvas.height);
+    const displayedWidth = rotated ? canvas.height : canvas.width;
+    const displayedHeight = rotated ? canvas.width : canvas.height;
+    const scale = Math.min(1, gameStage.clientWidth * room / displayedWidth, gameStage.clientHeight * room / displayedHeight);
+    gameContainer.style.setProperty('--game-rotation', rotated ? '90deg' : '0deg');
     gameContainer.style.setProperty('--game-scale', String(scale));
   }
   new ResizeObserver(fitGameToScreen).observe(gameStage);
   window.visualViewport?.addEventListener('resize', syncVisibleViewport);
   window.addEventListener('resize', syncVisibleViewport);
+  window.addEventListener('orientationchange', () => {
+    syncVisibleViewport();
+    requestAnimationFrame(syncVisibleViewport);
+    setTimeout(syncVisibleViewport, 250);
+  });
+  portraitQuery.addEventListener('change', syncVisibleViewport);
   syncVisibleViewport();
   ctx.imageSmoothingEnabled = false;
 
