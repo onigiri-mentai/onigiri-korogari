@@ -214,6 +214,7 @@
   const jumpSound1 = document.getElementById('jumpSound1');
   const jumpSound2 = document.getElementById('jumpSound2');
   const getItemSound = document.getElementById('getItemSound');
+  const resultSound = document.getElementById('resultSound');
   const titleBgm = document.getElementById('titleBgm');
   const gameBgm = document.getElementById('gameBgm');
   let titleBgmEnabled = false;
@@ -226,7 +227,7 @@
     if (!AudioContextClass || !effectsEnabled) return;
     try {
       effectsContext = new AudioContextClass({ latencyHint: 'interactive' });
-      await Promise.all([jumpSound1, jumpSound2, getItemSound].map(async sound => {
+      await Promise.all([jumpSound1, jumpSound2, getItemSound, resultSound].map(async sound => {
         const response = await fetch(sound.src);
         if (!response.ok) throw new Error('効果音を読み込めませんでした');
         const buffer = await effectsContext.decodeAudioData(await response.arrayBuffer());
@@ -673,6 +674,7 @@ function showResult() {
   resultLayout.classList.add('revealing');
   prepareResultImage();
   resultScreen.style.display = 'flex';
+  playEffect(resultSound);
 }
 
 
