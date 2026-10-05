@@ -40,14 +40,19 @@
       width: 100%;
       overflow: hidden;
     }
-    #game-container {
+    #game-frame {
       position: absolute;
       left: 50%;
       top: 50%;
       width: 800px;
-      height: 400px;
+      height: 426px;
       margin: 0;
       transform: translate(-50%, -50%) rotate(var(--game-rotation, 0deg)) scale(var(--game-scale, 0));
+    }
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 400px;
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
@@ -62,11 +67,14 @@
       display: block;
     }
     .music-credit {
-      flex-shrink: 0;
-      margin: 4px 0 0;
+      position: absolute;
+      top: 406px;
+      left: 0;
+      width: 800px;
+      margin: 0;
       color: #3d3d3c;
-      font-size: 12px;
-      line-height: 1.6;
+      font-size: 14px;
+      line-height: 1.4;
       text-align: center;
     }
 
@@ -80,6 +88,7 @@
       outline-offset: 3px;
     }
 
+    body.mobile #controls { display: none; }
     button, a { touch-action: manipulation; }
     .sound-card__instructions { margin: 0 0 14px; font-size: 17px; font-weight: 800; }
     #saveImageButton {
@@ -828,6 +837,7 @@
 </head>
 <body>
   <div id="game-stage">
+  <div id="game-frame">
   <div id="game-container">
     <canvas id="gameCanvas" width="800" height="400"></canvas>
     <div id="ingredientHud"></div>
@@ -906,8 +916,9 @@
       <div><a id="saveDownloadLink" download="onigiri-result.png">画像をダウンロード</a> <button id="closeSavePreview" type="button">とじる</button></div>
     </div>
   </div>
-  </div>
   <footer class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</footer>
-  <script src="script.js?v=result-photo-4"></script>
+  </div>
+  </div>
+  <script src="script.js?v=mobile-credit-smooth-5"></script>
 </body>
 </html>
