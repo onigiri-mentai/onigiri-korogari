@@ -20,15 +20,18 @@
   }
 
   function syncVisibleViewport() {
-    if (window.visualViewport) {
-      document.body.style.setProperty('--viewport-height', `${window.visualViewport.height}px`);
+    if (window.visualViewport && window.visualViewport.scale === 1) {
+      const viewportHeight = `${Math.round(window.visualViewport.height)}px`;
+      if (document.body.style.getPropertyValue('--viewport-height') !== viewportHeight) {
+        document.body.style.setProperty('--viewport-height', viewportHeight);
+      }
     }
     fitGameToScreen();
   }
 
   function fitGameToScreen() {
     // スマホは上下左右に余白を残す。縦画面は幅を活かして文字を読みやすくする。
-    const room = mobileQuery.matches ? (portraitQuery.matches ? 0.92 : 0.82) : 1;
+    const room = mobileQuery.matches ? 0.92 : 1;
     const scale = Math.min(1, gameStage.clientWidth * room / canvas.width, gameStage.clientHeight * room / canvas.height);
     gameContainer.style.setProperty('--game-scale', String(scale));
   }
@@ -97,6 +100,8 @@
   let state = 'start';
   let revealTimer = null;
   let lastTime = 0;
+  const PHYSICS_STEP = 1000 / 60;
+  let physicsRemainder = 0;
   let startTime = 0;
   let nextItemSpawn = 0;
   let nextPitSpawn = 0;
@@ -180,6 +185,20 @@
   const imageCache = {};
   const spriteCache = {};
 
+  function makeComboGlow(stage) {
+    const glow = document.createElement('canvas');
+    glow.width = glow.height = 100;
+    const glowCtx = glow.getContext('2d');
+    const radius = stage === 1 ? 42 : 50;
+    const grad = glowCtx.createRadialGradient(50, 50, stage === 1 ? 4 : 8, 50, 50, radius);
+    grad.addColorStop(0, stage === 1 ? 'rgba(255,255,220,0.34)' : 'rgba(255,225,130,0.46)');
+    grad.addColorStop(stage === 1 ? 0.35 : 0.38, stage === 1 ? 'rgba(255,215,80,0.12)' : 'rgba(255,120,30,0.20)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    glowCtx.fillStyle = grad;
+    glowCtx.fillRect(0, 0, 100, 100);
+    return glow;
+  }
+
   function makeSprite(image, width, height) {
     const sprite = document.createElement('canvas');
     sprite.width = width;
@@ -211,6 +230,8 @@
       spriteCache[`fly:${ing.type}`] = makeSprite(imageCache[ing.iconSrc], 24, 24);
     }
     spriteCache.player = makeSprite(player.image, player.width, player.height);
+    spriteCache.glow1 = makeComboGlow(1);
+    spriteCache.glow2 = makeComboGlow(2);
   }
 
   function playTitleBgm() {
@@ -295,6 +316,7 @@
   }
 
   function resetGame() {
+    physicsRemainder = 0;
     combo = 0;
     totalCollected = 0;
     maxCombo = 0;
@@ -626,13 +648,13 @@ function showResult() {
     }
   }
 
-  function updateFlyingIcons() {
+  function updateFlyingIcons(f = 1) {
     for (let i = flyingIcons.length - 1; i >= 0; i--) {
       const icon = flyingIcons[i];
-      icon.x += icon.vx;
-      icon.y += icon.vy;
-      icon.vy += GRAVITY * 0.2;
-      icon.alpha -= 1 / icon.lifetime;
+      icon.x += icon.vx * f;
+      icon.y += icon.vy * f;
+      icon.vy += GRAVITY * 0.2 * f;
+      icon.alpha -= f / icon.lifetime;
       if (icon.alpha <= 0) flyingIcons.splice(i, 1);
     }
   }
@@ -711,13 +733,20 @@ function drawPixelHouseGoal(goalObj) {
 
 
   function update(now) {
-    
-    const delta = now - lastTime;
+    // 描画速度が違ってもジャンプ軌道と当たり判定は60Hzで揃える。
+    physicsRemainder += Math.min(100, Math.max(0, now - lastTime));
     lastTime = now;
-    animTime += delta; // ミリ秒
+    while (physicsRemainder + 0.000001 >= PHYSICS_STEP && state === 'running') {
+      const stepTime = now - physicsRemainder + PHYSICS_STEP;
+      physicsRemainder = Math.max(0, physicsRemainder - PHYSICS_STEP);
+      updateStep(stepTime);
+    }
+  }
 
-    // 60FPS基準のスケール係数（上限で暴走防止）
-    const f = Math.min(40, delta) / (1000 / 60); // 16.67ms基準
+  function updateStep(now) {
+    const delta = PHYSICS_STEP;
+    const f = 1;
+    animTime += delta;
 
     if (state !== 'running') return;
 
@@ -818,7 +847,7 @@ function drawPixelHouseGoal(goalObj) {
     }
   }
 
-  updateFlyingIcons();
+  updateFlyingIcons(f);
 
   player.vy += GRAVITY * f;
   player.y += player.vy * f;
@@ -1014,27 +1043,11 @@ if (comboStage > 0) {
   const cx = player.x + player.width / 2 + jitterX;
   const cy = player.y + player.height / 2 + jitterY;
 
-  if (comboStage === 1) {
-    const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 42);
-    grad.addColorStop(0, 'rgba(255,255,220,0.34)');
-    grad.addColorStop(0.35, 'rgba(255,215,80,0.12)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(cx, cy, 42, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  } else {
-    const grad = ctx.createRadialGradient(cx, cy, 8, cx, cy, 50);
-    grad.addColorStop(0, 'rgba(255,225,130,0.46)');
-    grad.addColorStop(0.38, 'rgba(255,120,30,0.20)');
-    grad.addColorStop(1, 'rgba(255,180,60,0)');
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(cx, cy, 50, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const glow = comboStage === 1 ? spriteCache.glow1 : spriteCache.glow2;
+  if (glow) ctx.drawImage(glow, cx - 50, cy - 50);
+  ctx.restore();
 }
 
   // --- 本体 ---
@@ -1049,7 +1062,7 @@ if (comboStage === 1) {
   const cx0 = player.x + player.width / 2;
   const cy0 = player.y + player.height / 2;
 
-  const SPARKS = 10;
+  const SPARKS = mobileQuery.matches ? 4 : 10;
   const t = animTime * 0.006;
 
   ctx.save();
@@ -1093,7 +1106,7 @@ if (comboStage >= 2) {
   const baseY = player.y + player.height * 0.32;
 
   // ── 火花。三角形の炎ではなく、粒と光跡でスーパー感を出す ──
-  for (let s=0; s<22; s++){
+  for (let s=0; s<(mobileQuery.matches ? 8 : 22); s++){
     const seed = s * 2.37;
     const drift = (t * 0.018 + seed) % (Math.PI * 2);
     const ang = -Math.PI / 2 + Math.sin(drift) * 1.4;
@@ -1187,6 +1200,7 @@ function drawRoundedRectPath(x, y, width, height, radius) {
         nextPitSpawn += pausedFor;
         stunEndTime += pausedFor;
         lastTime = now;
+        physicsRemainder = 0;
         portraitPauseStarted = null;
       }
       update(now);
@@ -1223,6 +1237,10 @@ function drawRoundedRectPath(x, y, width, height, radius) {
     e.preventDefault();
     jump();
   });
+  // Safariでも連続タップをズームやページ移動として扱わせない。
+  for (const eventName of ['touchmove', 'gesturestart', 'gesturechange', 'dblclick']) {
+    gameContainer.addEventListener(eventName, (e) => e.preventDefault(), { passive: false });
+  }
   window.addEventListener('keydown', (e) => {
     if (shouldPauseForPortrait()) return;
     if (e.code === 'Space') {
