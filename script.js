@@ -12,14 +12,37 @@
   const gameContainer = document.getElementById('game-container');
   const gameStage = document.getElementById('game-stage');
   const portraitQuery = window.matchMedia('(orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px)');
+  const mobileQuery = window.matchMedia('(any-pointer: coarse), (max-width: 900px)');
+  let allowPortrait = false;
   let portraitPauseStarted = null;
 
+  function shouldPauseForPortrait() {
+    return portraitQuery.matches && !allowPortrait;
+  }
+
+  document.getElementById('playPortraitButton').addEventListener('click', () => {
+    allowPortrait = true;
+    document.body.classList.add('allow-portrait');
+    fitGameToScreen();
+  });
+
+  function syncVisibleViewport() {
+    if (window.visualViewport) {
+      document.body.style.setProperty('--viewport-height', `${window.visualViewport.height}px`);
+    }
+    fitGameToScreen();
+  }
+
   function fitGameToScreen() {
-    const scale = Math.min(1, gameStage.clientWidth / canvas.width, gameStage.clientHeight / canvas.height);
+    // スマホは上下左右に余白を残す。縦画面は幅を活かして文字を読みやすくする。
+    const room = mobileQuery.matches ? (portraitQuery.matches ? 0.92 : 0.82) : 1;
+    const scale = Math.min(1, gameStage.clientWidth * room / canvas.width, gameStage.clientHeight * room / canvas.height);
     gameContainer.style.setProperty('--game-scale', String(scale));
   }
   new ResizeObserver(fitGameToScreen).observe(gameStage);
-  fitGameToScreen();
+  window.visualViewport?.addEventListener('resize', syncVisibleViewport);
+  window.addEventListener('resize', syncVisibleViewport);
+  syncVisibleViewport();
   ctx.imageSmoothingEnabled = false;
 
   const PERF = {
@@ -237,7 +260,7 @@
   }
 
   function jump() {
-    if (state !== 'running' || isStunned || portraitQuery.matches) return;
+    if (state !== 'running' || isStunned || shouldPauseForPortrait()) return;
 
     if (player.jumpCount < 2) {
       player.vy = -10;
@@ -325,7 +348,7 @@
   }
 
   function startGame() {
-    if (portraitQuery.matches) return;
+    if (shouldPauseForPortrait()) return;
     portraitPauseStarted = null;
     clearTimeout(revealTimer);
     revealTimer = null;
@@ -1159,7 +1182,7 @@ function drawRoundedRectPath(x, y, width, height, radius) {
   function gameLoop(now) {
     if (state === 'running') {
       // 横向きに戻るまでプレイ時間と出現タイマーも停止する。
-      if (portraitQuery.matches) {
+      if (shouldPauseForPortrait()) {
         if (portraitPauseStarted === null) portraitPauseStarted = now;
         requestAnimationFrame(gameLoop);
         return;
@@ -1208,7 +1231,7 @@ function drawRoundedRectPath(x, y, width, height, radius) {
     jump();
   });
   window.addEventListener('keydown', (e) => {
-    if (portraitQuery.matches) return;
+    if (shouldPauseForPortrait()) return;
     if (e.code === 'Space') {
       if (e.target === bgmToggle || e.target === soundMuteButton) return;
       e.preventDefault();
