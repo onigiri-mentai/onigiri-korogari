@@ -14,7 +14,8 @@
       height: 100%;
       background: #cfe8ff;
       font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Kaku Gothic Pro', 'ヒラギノ角ゴシック', sans-serif;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
     #game-container {
       position: relative;
@@ -30,6 +31,25 @@
       height: 400px;
       display: block;
     }
+    .music-credit {
+      margin: 0 16px 20px;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      color: #3d3d3c;
+      font-size: 12px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .music-credit a {
+      color: #315b7d;
+      text-underline-offset: 3px;
+    }
+
+    .music-credit a:focus-visible {
+      outline: 2px solid #315b7d;
+      outline-offset: 3px;
+    }
+
     /* 具材表示 */
     #ingredientHud {
       position: absolute;
@@ -832,6 +852,7 @@
       </div>
     </div>
   </div>
+  <footer class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</footer>
   <script src="script.js"></script>
 </body>
 </html>
