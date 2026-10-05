@@ -9,6 +9,16 @@
 (() => {
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  // 計測モードは ?performance=1 のときだけ表示する。
+  const performanceMode = new URLSearchParams(window.location.search).get('performance') === '1';
+  const frameMetrics = { frames: 0, start: 0, last: 0, cpu: 0, maxGap: 0 };
+  let performanceHud = null;
+  if (performanceMode) {
+    performanceHud = document.createElement('div');
+    performanceHud.id = 'performanceHud';
+    performanceHud.setAttribute('role', 'status');
+    document.getElementById('game-container').appendChild(performanceHud);
+  }
   const gameContainer = document.getElementById('game-container');
   const gameStage = document.getElementById('game-stage');
   const gameFrame = document.getElementById('game-frame');
@@ -150,6 +160,9 @@
   const flyingIcons = [];
   let collected = {}; // ← 具材ごとの個数管理
   let scrollX = 0;
+  let previousScrollX = 0;
+  let previousPlayerY = GROUND_Y;
+  let previousPlayerRotation = 0;
 
   const ingredients = [
   { type: 'おかか', itemSrc: 'assets/item_おかか.png', iconSrc: 'assets/icon_おかか.png', rarity: 'normal', itemScale: 0.82, resultScale: 0.78 },
@@ -202,6 +215,44 @@
   const titleBgm = document.getElementById('titleBgm');
   const gameBgm = document.getElementById('gameBgm');
   let titleBgmEnabled = false;
+  const effectsEnabled = new URLSearchParams(window.location.search).get('nosfx') !== '1';
+  let effectsContext = null;
+  const effectBuffers = new Map();
+
+  async function preloadEffects() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass || !effectsEnabled) return;
+    try {
+      effectsContext = new AudioContextClass({ latencyHint: 'interactive' });
+      await Promise.all([jumpSound1, jumpSound2, getItemSound].map(async sound => {
+        const response = await fetch(sound.src);
+        if (!response.ok) throw new Error('効果音を読み込めませんでした');
+        const buffer = await effectsContext.decodeAudioData(await response.arrayBuffer());
+        effectBuffers.set(sound.id, buffer);
+      }));
+    } catch (error) {
+      // 非対応環境や読み込み失敗時は従来の再生方法を使う。
+    }
+  }
+
+  function unlockEffects() {
+    if (effectsContext?.state === 'suspended') effectsContext.resume().catch(() => {});
+  }
+
+  function playEffect(sound) {
+    if (!effectsEnabled) return;
+    const buffer = effectBuffers.get(sound.id);
+    if (buffer && effectsContext) {
+      const source = effectsContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(effectsContext.destination);
+      source.onended = () => source.disconnect();
+      source.start();
+    } else {
+      sound.currentTime = 0;
+      sound.play()?.catch(() => {});
+    }
+  }
 
   const imageCache = {};
   const spriteCache = {};
@@ -308,14 +359,7 @@
       player.vy = -10;
       player.jumpCount++;
 
-      // ジャンプ音を再生
-      if (player.jumpCount === 1) {
-        jumpSound1.currentTime = 0;
-        jumpSound1.play();
-      } else if (player.jumpCount === 2) {
-        jumpSound2.currentTime = 0;
-        jumpSound2.play();
-      }
+      playEffect(player.jumpCount === 1 ? jumpSound1 : jumpSound2);
     }
   }
 
@@ -344,6 +388,10 @@
   }
 
   function resetGame() {
+    previousScrollX = 0;
+    previousPlayerY = GROUND_Y;
+    previousPlayerRotation = 0;
+    frameMetrics.frames = frameMetrics.start = frameMetrics.last = frameMetrics.cpu = frameMetrics.maxGap = 0;
     resultExportVersion++;
     resultFile = null;
     if (resultImageUrl) URL.revokeObjectURL(resultImageUrl);
@@ -400,6 +448,7 @@
 
   function startGame() {
     if (state === 'running') return;
+    unlockEffects();
     clearTimeout(revealTimer);
     revealTimer = null;
     resultTeaser.style.display = 'none';
@@ -783,6 +832,13 @@ function drawPixelHouseGoal(goalObj) {
   }
 
   function updateStep(now) {
+    previousScrollX = scrollX;
+    previousPlayerY = player.y;
+    previousPlayerRotation = player.rotation;
+    for (const object of items) object.previousX = object.x;
+    for (const object of pits) object.previousX = object.x;
+    if (goal) goal.previousX = goal.x;
+    for (const icon of flyingIcons) { icon.previousX = icon.x; icon.previousY = icon.y; }
     const delta = PHYSICS_STEP;
     const f = 1;
     animTime += delta;
@@ -921,8 +977,7 @@ if (
     updateScoreDisplay();
 
     // 効果音
-    getItemSound.currentTime = 0;
-    getItemSound.play();
+    playEffect(getItemSound);
 
     // 取得アイテム消去
     items.splice(i, 1);
@@ -1228,11 +1283,64 @@ function drawRoundedRectPath(x, y, width, height, radius) {
 
   function gameLoop(now) {
     if (state === 'running') {
-      if (update(now)) draw();
+      const cpuStart = performanceMode ? performance.now() : 0;
+      update(now);
+      drawInterpolatedFrame();
+      if (performanceMode) {
+        if (!frameMetrics.start) frameMetrics.start = now;
+        if (frameMetrics.last) frameMetrics.maxGap = Math.max(frameMetrics.maxGap, now - frameMetrics.last);
+        frameMetrics.last = now;
+        frameMetrics.frames++;
+        frameMetrics.cpu += performance.now() - cpuStart;
+        const elapsed = now - frameMetrics.start;
+        if (elapsed >= 1000) {
+          performanceHud.textContent = `FPS ${Math.round(frameMetrics.frames * 1000 / elapsed)} / 処理 ${(frameMetrics.cpu / frameMetrics.frames).toFixed(1)}ms / 最大間隔 ${Math.round(frameMetrics.maxGap)}ms`;
+          frameMetrics.frames = frameMetrics.cpu = frameMetrics.maxGap = 0;
+          frameMetrics.start = now;
+        }
+      }
       requestAnimationFrame(gameLoop);
     } else if (state === 'over') {
       updateFlyingIcons();
       draw();
+    }
+  }
+
+  function moveForDrawing(object, alpha) {
+    object.actualX = object.x;
+    object.actualY = object.y;
+    if (object.previousX !== undefined) object.x = object.previousX + (object.x - object.previousX) * alpha;
+    if (object.previousY !== undefined) object.y = object.previousY + (object.y - object.previousY) * alpha;
+  }
+
+  function restoreDrawingPosition(object) {
+    object.x = object.actualX;
+    object.y = object.actualY;
+  }
+
+  function drawInterpolatedFrame() {
+    // 物理計算がないフレームも前後の位置の間を描く。描画を飛ばすとSafariで移動が途切れる。
+    const alpha = Math.min(1, physicsRemainder / PHYSICS_STEP);
+    const actualScrollX = scrollX;
+    const actualY = player.y;
+    const actualRotation = player.rotation;
+    scrollX = previousScrollX + (scrollX - previousScrollX) * alpha;
+    player.y = previousPlayerY + (player.y - previousPlayerY) * alpha;
+    player.rotation = previousPlayerRotation + (player.rotation - previousPlayerRotation) * alpha;
+    for (const item of items) moveForDrawing(item, alpha);
+    for (const pit of pits) moveForDrawing(pit, alpha);
+    for (const icon of flyingIcons) moveForDrawing(icon, alpha);
+    if (goal) moveForDrawing(goal, alpha);
+    try {
+      draw();
+    } finally {
+      scrollX = actualScrollX;
+      player.y = actualY;
+      player.rotation = actualRotation;
+      for (const item of items) restoreDrawingPosition(item);
+      for (const pit of pits) restoreDrawingPosition(pit);
+      for (const icon of flyingIcons) restoreDrawingPosition(icon);
+      if (goal) restoreDrawingPosition(goal);
     }
   }
 
@@ -1358,11 +1466,13 @@ function drawRoundedRectPath(x, y, width, height, radius) {
     if (state === 'start' || state === 'over') startGame();
   });
   function acceptSoundPrompt() {
+    unlockEffects();
     soundPrompt.style.display = 'none';
     setBgmEnabled(true);
   }
 
   function dismissSoundPromptMuted() {
+    unlockEffects();
     soundPrompt.style.display = 'none';
     setBgmEnabled(false);
   }
@@ -1408,7 +1518,9 @@ function drawRoundedRectPath(x, y, width, height, radius) {
     }
   });
 
-  preloadImages().then(() => {
+  startButton.disabled = true;
+  Promise.all([preloadImages(), preloadEffects()]).then(() => {
+    startButton.disabled = false;
     startScreen.style.display = 'flex';
     soundPrompt.style.display = 'flex';
   });
