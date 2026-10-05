@@ -687,6 +687,10 @@
     }
 
     #restartButton {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
       width: 148px;
       margin: 0;
       font-size: 16px;
@@ -920,7 +924,7 @@
         <div id="saveStatus" role="status" aria-live="polite"></div>
         <div class="result-actions">
           <button id="saveImageButton" type="button" disabled><span id="saveImageLabel">画像を準備中…</span><svg class="share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 9H5v12h14V9h-3M12 15V2m-4 4 4-4 4 4"/></svg></button>
-          <button id="restartButton">もういちど</button>
+          <button id="restartButton" type="button"><span>もういちど</span><svg class="share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2.3 5.7"/></svg></button>
         </div>
       </div>
     </div>
