@@ -12,9 +12,11 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      background: #cfe8ff;
+      background: #fffdf5;
       font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Kaku Gothic Pro', 'ヒラギノ角ゴシック', sans-serif;
       overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: manipulation;
     }
     body {
       height: var(--viewport-height, 100dvh);
@@ -40,6 +42,7 @@
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-touch-callout: none;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       background: #cfe8ff;
       overflow: hidden;
@@ -78,13 +81,14 @@
       flex-direction: column;
       box-sizing: border-box;
       padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
-      background: #cfe8ff;
+      background: #fffdf5;
       color: #3d3024;
       text-align: center;
       line-height: 1.8;
     }
     #orientationPrompt .rotate-icon { font-size: 56px; }
     #orientationPrompt p { margin: 8px 0; }
+    button, a { touch-action: manipulation; }
     #playPortraitButton {
       margin: 16px 0;
       padding: 12px 24px;
@@ -912,7 +916,7 @@
   <footer class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</footer>
   <div id="orientationPrompt" role="status" aria-live="polite">
     <span class="rotate-icon" aria-hidden="true">📱↔️</span>
-    <p><strong>横向きで遊ぶのがおすすめ🍙</strong><br>縦向きロック中でも、このまま遊べるよ！<br>画面タップでジャンプ、もう一度で二段ジャンプ</p>
+    <p><strong>横向きだと大きく遊べるよ🍙</strong><br>縦向きロックを解除して、スマホを横向きにしてね。<br>画面タップでジャンプ、もう一度で二段ジャンプ</p>
     <button id="playPortraitButton" type="button">このまま縦画面で遊ぶ</button>
     <p class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</p>
   </div>
@@ -924,6 +928,6 @@
       window.dispatchEvent(new Event('resize'));
     });
   </script>
-  <script src="script.js?v=portrait-safari-fix-1"></script>
+  <script src="script.js?v=mobile-smooth-2"></script>
 </body>
 </html>
