@@ -13,12 +13,6 @@
   const gameStage = document.getElementById('game-stage');
   const portraitQuery = window.matchMedia('(orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px)');
   const mobileQuery = window.matchMedia('(any-pointer: coarse), (max-width: 900px)');
-  let portraitPauseStarted = null;
-
-  function shouldPauseForPortrait() {
-    return portraitQuery.matches && !document.body.classList.contains('allow-portrait');
-  }
-
   function syncVisibleViewport() {
     const viewport = window.visualViewport;
     // ピンチ拡大率を除いた表示領域を使い、縦横切替後の古い高さを残さない。
@@ -35,7 +29,7 @@
   }
 
   function fitGameToScreen() {
-    const rotated = portraitQuery.matches && document.body.classList.contains('allow-portrait');
+    const rotated = portraitQuery.matches;
     const room = mobileQuery.matches ? 0.92 : 1;
     const displayedWidth = rotated ? canvas.height : canvas.width;
     const displayedHeight = rotated ? canvas.width : canvas.height;
@@ -82,6 +76,14 @@
   const ingredientMsg = document.getElementById('ingredientMsg');
   const congrats = document.getElementById('congrats');
   const restartButton = document.getElementById('restartButton');
+  const saveImageButton = document.getElementById('saveImageButton');
+  const saveStatus = document.getElementById('saveStatus');
+  const savePreview = document.getElementById('savePreview');
+  const savePreviewImage = document.getElementById('savePreviewImage');
+  const saveDownloadLink = document.getElementById('saveDownloadLink');
+  let resultFile = null;
+  let resultImageUrl = null;
+  let resultExportVersion = 0;
   const jumpButton = document.getElementById('jumpButton');
   const timerElem = document.getElementById('timer');
   const ingredientHud = document.getElementById('ingredientHud');
@@ -288,7 +290,7 @@
   }
 
   function jump() {
-    if (state !== 'running' || isStunned || shouldPauseForPortrait()) return;
+    if (state !== 'running' || isStunned) return;
 
     if (player.jumpCount < 2) {
       player.vy = -10;
@@ -330,6 +332,14 @@
   }
 
   function resetGame() {
+    resultExportVersion++;
+    resultFile = null;
+    if (resultImageUrl) URL.revokeObjectURL(resultImageUrl);
+    resultImageUrl = null;
+    savePreview.style.display = 'none';
+    saveImageButton.disabled = true;
+    saveImageButton.textContent = '画像を準備中…';
+    saveStatus.textContent = '';
     physicsRemainder = 0;
     combo = 0;
     totalCollected = 0;
@@ -377,8 +387,6 @@
   }
 
   function startGame() {
-    if (shouldPauseForPortrait()) return;
-    portraitPauseStarted = null;
     clearTimeout(revealTimer);
     revealTimer = null;
     resultTeaser.style.display = 'none';
@@ -598,6 +606,7 @@ function showResult() {
   resultLayout.classList.remove('revealing');
   void resultLayout.offsetWidth;
   resultLayout.classList.add('revealing');
+  prepareResultImage();
   resultScreen.style.display = 'flex';
 }
 
@@ -1201,22 +1210,6 @@ function drawRoundedRectPath(x, y, width, height, radius) {
 
   function gameLoop(now) {
     if (state === 'running') {
-      // 横向きに戻るまでプレイ時間と出現タイマーも停止する。
-      if (shouldPauseForPortrait()) {
-        if (portraitPauseStarted === null) portraitPauseStarted = now;
-        requestAnimationFrame(gameLoop);
-        return;
-      }
-      if (portraitPauseStarted !== null) {
-        const pausedFor = now - portraitPauseStarted;
-        startTime += pausedFor;
-        nextItemSpawn += pausedFor;
-        nextPitSpawn += pausedFor;
-        stunEndTime += pausedFor;
-        lastTime = now;
-        physicsRemainder = 0;
-        portraitPauseStarted = null;
-      }
       update(now);
       draw();
       requestAnimationFrame(gameLoop);
@@ -1225,6 +1218,124 @@ function drawRoundedRectPath(x, y, width, height, radius) {
       draw();
     }
   }
+
+  function wrapResultText(exportCtx, text, x, y, maxWidth, lineHeight) {
+    let line = '';
+    for (const character of text) {
+      if (line && exportCtx.measureText(line + character).width > maxWidth) {
+        exportCtx.fillText(line, x, y);
+        y += lineHeight;
+        line = '';
+      }
+      line += character;
+    }
+    exportCtx.fillText(line, x, y);
+  }
+
+  async function prepareResultImage() {
+    const version = ++resultExportVersion;
+    saveImageButton.disabled = true;
+    saveImageButton.textContent = '画像を準備中…';
+    try {
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = 1600;
+      exportCanvas.height = 800;
+      const exportCtx = exportCanvas.getContext('2d');
+      exportCtx.scale(2, 2);
+      exportCtx.imageSmoothingEnabled = false;
+      const sources = ['assets/result_bg.png', 'assets/title_logo.png'];
+      const pictures = Array.from(resultIngredients.querySelectorAll('img'));
+      const assets = await Promise.all([...sources, ...pictures.map(img => img.src)].map(src => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('画像を読み込めませんでした'));
+        img.src = src;
+      })));
+      if (version !== resultExportVersion) return;
+      exportCtx.drawImage(assets[0], 0, 0, 800, 400);
+      exportCtx.drawImage(assets[1], 10, 18, 185, 185 * assets[1].height / assets[1].width);
+      exportCtx.fillStyle = '#3d3024';
+      exportCtx.textAlign = 'center';
+      exportCtx.font = '900 24px sans-serif';
+      const titleLines = Array.from(ingredientMsg.children).map(node => node.textContent);
+      titleLines.forEach((line, index) => exportCtx.fillText(line, 400, 70 + index * 28, 440));
+      exportCtx.drawImage(player.image, 305, 124, 190, 190);
+      pictures.forEach((img, index) => {
+        const size = parseFloat(img.style.width);
+        const rotation = /rotate\(([-\d.]+)deg\)/.exec(img.style.transform);
+        const scaleMatch = /scale\(([-\d.]+)\)/.exec(img.style.transform);
+        exportCtx.save();
+        exportCtx.translate(277 + parseFloat(img.style.left) + size / 2, 110 + parseFloat(img.style.top) + size / 2);
+        exportCtx.rotate(Number(rotation?.[1] || 0) * Math.PI / 180);
+        const sizeScale = Number(scaleMatch?.[1] || 1);
+        exportCtx.scale(sizeScale, sizeScale);
+        exportCtx.drawImage(assets[index + 2], -size / 2, -size / 2, size, size);
+        exportCtx.restore();
+      });
+      exportCtx.fillStyle = '#fff3b6';
+      exportCtx.beginPath();
+      exportCtx.ellipse(123, 180, 80, 54, -0.12, 0, Math.PI * 2);
+      exportCtx.fill();
+      exportCtx.fillStyle = '#6f3f1f';
+      exportCtx.font = '900 21px sans-serif';
+      exportCtx.fillText(resultRank.querySelector('span').textContent, 123, 176);
+      exportCtx.font = '900 15px sans-serif';
+      exportCtx.fillText(resultRank.querySelector('strong').textContent, 123, 200, 140);
+      exportCtx.fillStyle = 'rgba(255,253,243,0.95)';
+      exportCtx.fillRect(222, 315, 358, 58);
+      exportCtx.fillStyle = '#6f3f1f';
+      exportCtx.font = 'bold 15px sans-serif';
+      wrapResultText(exportCtx, resultFortune.textContent, 400, 338, 326, 21);
+      exportCtx.textAlign = 'left';
+      exportCtx.font = 'bold 11px sans-serif';
+      exportCtx.fillText(resultScore.textContent, 30, 303);
+      exportCtx.fillText(resultBonus.textContent, 30, 321);
+      exportCtx.font = '11px sans-serif';
+      const entries = getCollectedEntries().map(([name, count]) => `${name} ×${count}`).join('　') || '具材なし';
+      wrapResultText(exportCtx, entries, 30, 339, 180, 16);
+      if (resultSpecial.classList.contains('show')) {
+        exportCtx.textAlign = 'center';
+        exportCtx.font = '900 17px sans-serif';
+        exportCtx.fillText(resultSpecial.innerText.replace(/\n/g, ' '), 700, 85, 170);
+      }
+      exportCtx.textAlign = 'right';
+      exportCtx.font = '10px sans-serif';
+      exportCtx.fillText('ころがりおにぎり', 780, 372);
+      exportCtx.fillText('BGM：OtoLogic（CC BY 4.0）', 780, 390);
+      const blob = await new Promise((resolve, reject) => exportCanvas.toBlob(value => value ? resolve(value) : reject(new Error('画像を作成できませんでした')), 'image/png'));
+      if (version !== resultExportVersion) return;
+      if (resultImageUrl) URL.revokeObjectURL(resultImageUrl);
+      resultImageUrl = URL.createObjectURL(blob);
+      resultFile = new File([blob], 'onigiri-result.png', { type: 'image/png' });
+      saveImageButton.textContent = '画像を保存';
+      saveImageButton.disabled = false;
+    } catch (error) {
+      if (version !== resultExportVersion) return;
+      saveImageButton.textContent = '画像を再準備';
+      saveImageButton.disabled = false;
+      saveStatus.textContent = '画像の準備に失敗しました。もう一度押してね。';
+    }
+  }
+
+  saveImageButton.addEventListener('click', async () => {
+    if (!resultFile) { prepareResultImage(); return; }
+    saveStatus.textContent = '';
+    if (navigator.share && navigator.canShare?.({ files: [resultFile] })) {
+      try {
+        // 作成済みのFileを渡し、Safariのユーザー操作の有効期間内に共有する。
+        await navigator.share({ files: [resultFile] });
+        return;
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+    }
+    savePreviewImage.src = resultImageUrl;
+    saveDownloadLink.href = resultImageUrl;
+    savePreview.style.display = 'flex';
+  });
+  document.getElementById('closeSavePreview').addEventListener('click', () => {
+    savePreview.style.display = 'none';
+  });
 
   startButton.addEventListener('click', () => {
     if (state === 'start' || state === 'over') startGame();
@@ -1256,7 +1367,6 @@ function drawRoundedRectPath(x, y, width, height, radius) {
     gameContainer.addEventListener(eventName, (e) => e.preventDefault(), { passive: false });
   }
   window.addEventListener('keydown', (e) => {
-    if (shouldPauseForPortrait()) return;
     if (e.code === 'Space') {
       if (e.target === bgmToggle || e.target === soundMuteButton) return;
       e.preventDefault();
