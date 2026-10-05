@@ -916,6 +916,14 @@
     <button id="playPortraitButton" type="button">このまま縦画面で遊ぶ</button>
     <p class="music-credit">BGM：<a href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">OtoLogic</a>（CC BY 4.0）</p>
   </div>
-  <script src="script.js"></script>
+  <script>
+    // 案内の操作はゲーム本体の読み込みを待たずに使えるようにする。
+    document.getElementById('playPortraitButton').addEventListener('click', function () {
+      document.body.classList.add('allow-portrait');
+      document.getElementById('orientationPrompt').style.display = 'none';
+      window.dispatchEvent(new Event('resize'));
+    });
+  </script>
+  <script src="script.js?v=portrait-safari-fix-1"></script>
 </body>
 </html>
