@@ -9,6 +9,17 @@
 (() => {
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  const gameContainer = document.getElementById('game-container');
+  const gameStage = document.getElementById('game-stage');
+  const portraitQuery = window.matchMedia('(orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px)');
+  let portraitPauseStarted = null;
+
+  function fitGameToScreen() {
+    const scale = Math.min(1, gameStage.clientWidth / canvas.width, gameStage.clientHeight / canvas.height);
+    gameContainer.style.setProperty('--game-scale', String(scale));
+  }
+  new ResizeObserver(fitGameToScreen).observe(gameStage);
+  fitGameToScreen();
   ctx.imageSmoothingEnabled = false;
 
   const PERF = {
@@ -226,7 +237,7 @@
   }
 
   function jump() {
-    if (state !== 'running' || isStunned) return;
+    if (state !== 'running' || isStunned || portraitQuery.matches) return;
 
     if (player.jumpCount < 2) {
       player.vy = -10;
@@ -314,6 +325,8 @@
   }
 
   function startGame() {
+    if (portraitQuery.matches) return;
+    portraitPauseStarted = null;
     clearTimeout(revealTimer);
     revealTimer = null;
     resultTeaser.style.display = 'none';
@@ -1145,6 +1158,21 @@ function drawRoundedRectPath(x, y, width, height, radius) {
 
   function gameLoop(now) {
     if (state === 'running') {
+      // 横向きに戻るまでプレイ時間と出現タイマーも停止する。
+      if (portraitQuery.matches) {
+        if (portraitPauseStarted === null) portraitPauseStarted = now;
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      if (portraitPauseStarted !== null) {
+        const pausedFor = now - portraitPauseStarted;
+        startTime += pausedFor;
+        nextItemSpawn += pausedFor;
+        nextPitSpawn += pausedFor;
+        stunEndTime += pausedFor;
+        lastTime = now;
+        portraitPauseStarted = null;
+      }
       update(now);
       draw();
       requestAnimationFrame(gameLoop);
@@ -1173,7 +1201,14 @@ function drawRoundedRectPath(x, y, width, height, radius) {
   restartButton.addEventListener('click', () => startGame());
   resultTeaser.addEventListener('click', showResult);
   jumpButton.addEventListener('click', jump);
+  gameContainer.addEventListener('pointerdown', (e) => {
+    if (!e.isPrimary || e.button !== 0 || state !== 'running') return;
+    if (e.target.closest('button, a, .overlay')) return;
+    e.preventDefault();
+    jump();
+  });
   window.addEventListener('keydown', (e) => {
+    if (portraitQuery.matches) return;
     if (e.code === 'Space') {
       if (e.target === bgmToggle || e.target === soundMuteButton) return;
       e.preventDefault();
@@ -1192,7 +1227,10 @@ function drawRoundedRectPath(x, y, width, height, radius) {
       jump();
       return;
     }
-    if (e.code === 'ArrowUp') jump();
+    if (e.code === 'ArrowUp') {
+      e.preventDefault();
+      jump();
+    }
   });
 
   preloadImages().then(() => {
