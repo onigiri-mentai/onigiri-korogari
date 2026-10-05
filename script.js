@@ -92,6 +92,7 @@
   const congrats = document.getElementById('congrats');
   const restartButton = document.getElementById('restartButton');
   const saveImageButton = document.getElementById('saveImageButton');
+  const saveImageLabel = document.getElementById('saveImageLabel') || saveImageButton;
   const saveStatus = document.getElementById('saveStatus');
   const savePreview = document.getElementById('savePreview');
   const savePreviewImage = document.getElementById('savePreviewImage');
@@ -400,7 +401,7 @@
     resultImageUrl = null;
     savePreview.style.display = 'none';
     saveImageButton.disabled = true;
-    saveImageButton.textContent = '画像を準備中…';
+    saveImageLabel.textContent = '画像を準備中…';
     saveStatus.textContent = '';
     physicsRemainder = 0;
     combo = 0;
@@ -1362,7 +1363,7 @@ function drawRoundedRectPath(x, y, width, height, radius) {
   async function prepareResultImage() {
     const version = ++resultExportVersion;
     saveImageButton.disabled = true;
-    saveImageButton.textContent = '画像を準備中…';
+    saveImageLabel.textContent = '画像を準備中…';
     try {
       const exportCanvas = document.createElement('canvas');
       exportCanvas.width = 1600;
@@ -1434,11 +1435,11 @@ function drawRoundedRectPath(x, y, width, height, radius) {
       if (resultImageUrl) URL.revokeObjectURL(resultImageUrl);
       resultImageUrl = URL.createObjectURL(blob);
       resultFile = new File([blob], 'onigiri-result.png', { type: 'image/png' });
-      saveImageButton.textContent = '画像を保存';
+      saveImageLabel.textContent = '画像を保存';
       saveImageButton.disabled = false;
     } catch (error) {
       if (version !== resultExportVersion) return;
-      saveImageButton.textContent = '画像を再準備';
+      saveImageLabel.textContent = '画像を再準備';
       saveImageButton.disabled = false;
       saveStatus.textContent = '画像の準備に失敗しました。もう一度押してね。';
     }
